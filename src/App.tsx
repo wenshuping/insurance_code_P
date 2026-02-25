@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Shield,
   List,
@@ -57,6 +57,7 @@ import {
   Save,
   User
 } from 'lucide-react';
+import { pApi, type PPermissionMatrix, type PStatsOverview, type PTenant } from './lib/api';
 
 const Sidebar = ({ currentView, onViewChange }: { currentView: string, onViewChange: (view: string) => void }) => {
   return (
@@ -75,8 +76,8 @@ const Sidebar = ({ currentView, onViewChange }: { currentView: string, onViewCha
       {/* Navigation */}
       <nav className="flex-1 px-4 space-y-6 overflow-y-auto pb-4">
         <NavSection title="租户管理" onViewChange={onViewChange} items={[
-          { icon: <List size={20} />, label: '租户列表', id: 'tenants' },
-          { icon: <UserPlus size={20} />, label: '创建租户', id: 'create-tenant' },
+          { icon: <List size={20} />, label: '租户列表', id: 'tenants', active: currentView === 'tenants' },
+          { icon: <UserPlus size={20} />, label: '创建租户', id: 'create-tenant', active: currentView === 'create-tenant' },
           { icon: <Users size={20} />, label: '员工管理', id: 'employees', active: currentView === 'employees' },
         ]} />
         <NavSection title="内容与营销" onViewChange={onViewChange} items={[
@@ -530,17 +531,218 @@ const CreateActivity = ({ onBack }: { onBack: () => void }) => {
   );
 };
 
+const TenantListPage = ({ tenants, onCreate }: { tenants: PTenant[]; onCreate: () => void }) => {
+  const rows = tenants.length
+    ? tenants
+    : [
+        { id: 9821, name: 'Atlas Global Insurance', type: 'company', status: 'active' },
+        { id: 4432, name: 'Liam Henderson Agency', type: 'personal', status: 'active' },
+        { id: 1055, name: 'Peak Protection Group', type: 'company', status: 'inactive' },
+        { id: 2287, name: 'Swift Solutions Ins.', type: 'company', status: 'active' },
+      ];
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden bg-[#f5f7fb]">
+      <header className="h-16 border-b border-gray-200 bg-white px-8 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3">
+          <h2 className="text-3xl font-black text-gray-900 tracking-tight">租户管理</h2>
+          <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-semibold">{rows.length} 已激活</span>
+        </div>
+        <button
+          onClick={onCreate}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-blue-600/20"
+        >
+          <Plus size={18} />
+          创建新租户
+        </button>
+      </header>
+      <main className="flex-1 overflow-auto p-8">
+        <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+          <div className="p-4 border-b border-gray-100 flex items-center gap-3">
+            <div className="relative flex-1">
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-blue-500/30"
+                placeholder="搜索租户名称、ID或管理员邮箱..."
+              />
+            </div>
+            <button className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 flex items-center gap-2">
+              <Filter size={16} />
+              更多筛选
+            </button>
+          </div>
+          <table className="w-full text-left">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">租户ID</th>
+                <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">类型</th>
+                <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">租户名称</th>
+                <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">状态</th>
+                <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase text-right">操作</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {rows.map((row: any) => (
+                <tr key={row.id} className="hover:bg-gray-50/70">
+                  <td className="px-6 py-4 text-sm text-gray-700 font-medium">TNT-{row.id}</td>
+                  <td className="px-6 py-4 text-sm text-gray-700">{row.type === 'company' ? '公司' : '个人'}</td>
+                  <td className="px-6 py-4 text-sm font-semibold text-gray-900">{row.name}</td>
+                  <td className="px-6 py-4">
+                    <span
+                      className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
+                        row.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {row.status === 'active' ? '已激活' : '未激活'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <button className="text-blue-600 hover:text-blue-700 text-sm font-bold">修改</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+  );
+};
+
+const CreateTenantPage = ({ onCancel }: { onCancel: () => void }) => {
+  const [tenantType, setTenantType] = useState<'company' | 'personal'>('company');
+  const [plan, setPlan] = useState<'basic' | 'pro' | 'enterprise'>('basic');
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden bg-[#f5f7fb]">
+      <header className="h-16 border-b border-gray-200 bg-white px-8 flex items-center justify-between shrink-0">
+        <h2 className="text-3xl font-black text-gray-900 tracking-tight">创建新租户</h2>
+      </header>
+      <main className="flex-1 overflow-auto p-8">
+        <div className="max-w-4xl mx-auto bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="p-6 border-b border-gray-100">
+            <p className="text-sm font-bold text-gray-700 mb-3">租户类别</p>
+            <div className="rounded-xl p-1 bg-gray-100 flex">
+              <button
+                onClick={() => setTenantType('company')}
+                className={`flex-1 py-2 text-sm rounded-lg font-semibold ${tenantType === 'company' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'}`}
+              >
+                公司
+              </button>
+              <button
+                onClick={() => setTenantType('personal')}
+                className={`flex-1 py-2 text-sm rounded-lg font-semibold ${tenantType === 'personal' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'}`}
+              >
+                个人代理
+              </button>
+            </div>
+          </div>
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label className="text-sm font-semibold text-gray-700">
+              {tenantType === 'company' ? '公司名称' : '代理名称'}
+              <input className="mt-2 w-full rounded-lg border border-gray-200 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/30" placeholder={tenantType === 'company' ? 'e.g. Acme Corporation' : 'e.g. Liam Henderson'} />
+            </label>
+            <label className="text-sm font-semibold text-gray-700">
+              营业执照代码
+              <input className="mt-2 w-full rounded-lg border border-gray-200 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/30" placeholder="BL-12345-X" />
+            </label>
+            <label className="text-sm font-semibold text-gray-700">
+              管理员邮箱
+              <input className="mt-2 w-full rounded-lg border border-gray-200 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/30" placeholder="admin@company.com" />
+            </label>
+            <label className="text-sm font-semibold text-gray-700">
+              初始密码
+              <input type="password" className="mt-2 w-full rounded-lg border border-gray-200 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/30" placeholder="至少 12 位字符" />
+            </label>
+          </div>
+          <div className="px-6 pb-6">
+            <p className="text-sm font-bold text-gray-700 mb-3">订阅套餐</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[
+                { key: 'basic', name: '基础版', desc: '支持 10 个用户', price: '$49/mo' },
+                { key: 'pro', name: '专业版', desc: '支持 50 个用户', price: '$199/mo' },
+                { key: 'enterprise', name: '企业版', desc: '无限制用户', price: '定制' },
+              ].map((item) => (
+                <button
+                  key={item.key}
+                  onClick={() => setPlan(item.key as any)}
+                  className={`p-4 rounded-xl border text-left ${plan === item.key ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-white'}`}
+                >
+                  <div className="text-base font-bold text-gray-900">{item.name}</div>
+                  <div className="text-xs text-gray-500 mt-1">{item.desc}</div>
+                  <div className="text-2xl font-black text-blue-600 mt-3">{item.price}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+            <button onClick={onCancel} className="px-4 py-2 text-sm font-semibold text-gray-600">
+              取消
+            </button>
+            <button className="px-5 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700">
+              创建租户
+            </button>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+};
+
 export default function App() {
-  const [currentView, setCurrentView] = useState<'activity' | 'create' | 'learning' | 'tags' | 'employees' | 'permissions'>('activity');
+  const [currentView, setCurrentView] = useState<'activity' | 'create' | 'learning' | 'tags' | 'employees' | 'permissions' | 'stats' | 'tenants' | 'create-tenant'>('tenants');
+  const [tenants, setTenants] = useState<PTenant[]>([]);
+  const [stats, setStats] = useState<PStatsOverview | null>(null);
+  const [permissionsData, setPermissionsData] = useState<PPermissionMatrix | null>(null);
+  const [liveError, setLiveError] = useState('');
+
+  useEffect(() => {
+    let disposed = false;
+    (async () => {
+      try {
+        const [tenantRes, statsRes, permissionsRes] = await Promise.all([pApi.tenants(), pApi.stats(), pApi.permissions()]);
+        if (disposed) return;
+        setTenants(tenantRes.list || []);
+        setStats(statsRes || null);
+        setPermissionsData(permissionsRes || null);
+        setLiveError('');
+      } catch (err: any) {
+        if (disposed) return;
+        setLiveError(err?.message || '实时数据加载失败');
+      }
+    })();
+    return () => {
+      disposed = true;
+    };
+  }, []);
 
   return (
     <div className="flex h-screen bg-gray-50 font-sans text-gray-900">
       <Sidebar currentView={currentView} onViewChange={(v) => setCurrentView(v as any)} />
       {currentView === 'activity' && (
         <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="px-8 pt-3">
+            <div className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs text-gray-600 flex items-center justify-between">
+              <span>
+                实时数据: 租户 {tenants.length} · 角色 {(permissionsData?.roles || []).length} · 权限 {(permissionsData?.permissions || []).length}
+              </span>
+              <span className={liveError ? 'text-red-500' : 'text-emerald-600'}>{liveError ? '连接异常' : '已连接 API'}</span>
+            </div>
+            {stats?.latest?.metrics && (
+              <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50 px-4 py-2 text-xs text-blue-700">
+                今日指标: 客户 {stats.latest.metrics.customers || 0} · 活跃 {stats.latest.metrics.activeCustomers || 0} · 支付订单 {stats.latest.metrics.paidOrders || 0}
+              </div>
+            )}
+          </div>
           <Header />
           <MainContent onCreateClick={() => setCurrentView('create')} />
         </div>
+      )}
+      {currentView === 'tenants' && (
+        <TenantListPage tenants={tenants} onCreate={() => setCurrentView('create-tenant')} />
+      )}
+      {currentView === 'create-tenant' && (
+        <CreateTenantPage onCancel={() => setCurrentView('tenants')} />
       )}
       {currentView === 'create' && (
         <CreateActivity onBack={() => setCurrentView('activity')} />
@@ -556,6 +758,35 @@ export default function App() {
       )}
       {currentView === 'permissions' && (
         <PermissionsManagement />
+      )}
+      {currentView === 'stats' && (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header />
+          <main className="flex-1 p-8 overflow-auto">
+            <div className="rounded-xl border border-gray-200 bg-white p-6">
+              <h2 className="text-xl font-bold text-gray-900">实时统计概览</h2>
+              <p className="text-sm text-gray-500 mt-1">来自 `/api/p/stats/overview`</p>
+              <div className="mt-4 text-sm text-gray-700">
+                <div>租户数: {tenants.length}</div>
+                <div>最近统计日期: {stats?.latest?.day || '-'}</div>
+                <div>活跃客户: {stats?.latest?.metrics?.activeCustomers || 0}</div>
+                <div>支付订单: {stats?.latest?.metrics?.paidOrders || 0}</div>
+              </div>
+              <button
+                onClick={async () => {
+                  try {
+                    await pApi.rebuildStats();
+                    const next = await pApi.stats();
+                    setStats(next);
+                  } catch {}
+                }}
+                className="mt-4 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700"
+              >
+                重新聚合统计
+              </button>
+            </div>
+          </main>
+        </div>
       )}
     </div>
   );
