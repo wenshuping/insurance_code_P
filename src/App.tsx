@@ -57,7 +57,7 @@ import {
   Save,
   User
 } from 'lucide-react';
-import { pApi, type PPermissionMatrix, type PStatsOverview, type PTenant } from './lib/api';
+import { pApi, trackEvent, type PPermissionMatrix, type PStatsOverview, type PTenant } from './lib/api';
 
 const Sidebar = ({ currentView, onViewChange }: { currentView: string, onViewChange: (view: string) => void }) => {
   return (
@@ -695,6 +695,9 @@ export default function App() {
   const [stats, setStats] = useState<PStatsOverview | null>(null);
   const [permissionsData, setPermissionsData] = useState<PPermissionMatrix | null>(null);
   const [liveError, setLiveError] = useState('');
+  const track = (event: string, properties: Record<string, unknown> = {}) => {
+    trackEvent({ event, properties }).catch(() => undefined);
+  };
 
   useEffect(() => {
     let disposed = false;
@@ -715,6 +718,10 @@ export default function App() {
       disposed = true;
     };
   }, []);
+
+  useEffect(() => {
+    track('p_page_view', { view: currentView });
+  }, [currentView]);
 
   return (
     <div className="flex h-screen bg-gray-50 font-sans text-gray-900">
