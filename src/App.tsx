@@ -57,7 +57,19 @@ import {
   Save,
   User
 } from 'lucide-react';
-import { pApi, trackEvent, type PPermissionMatrix, type PStatsOverview, type PTenant } from './lib/api';
+import {
+  pApi,
+  trackEvent,
+  type PActivity,
+  type PEmployee,
+  type PLearningCourse,
+  type PMallActivity,
+  type PMallProduct,
+  type PPermissionMatrix,
+  type PReconciliationReport,
+  type PStatsOverview,
+  type PTenant,
+} from './lib/api';
 
 const Sidebar = ({ currentView, onViewChange }: { currentView: string, onViewChange: (view: string) => void }) => {
   return (
@@ -81,20 +93,21 @@ const Sidebar = ({ currentView, onViewChange }: { currentView: string, onViewCha
           { icon: <Users size={20} />, label: '员工管理', id: 'employees', active: currentView === 'employees' },
         ]} />
         <NavSection title="内容与营销" onViewChange={onViewChange} items={[
-          { icon: <Megaphone size={20} />, label: '活动中心', id: 'activity', active: currentView === 'activity' || currentView === 'create' },
-          { icon: <BookOpen size={20} />, label: '学习资料', id: 'learning', active: currentView === 'learning' },
-          { icon: <ShoppingCart size={20} />, label: '积分商城', id: 'shop' },
+          { icon: <Megaphone size={20} />, label: '活动中心', id: 'activity', active: currentView === 'activity' || currentView === 'create' || currentView === 'activity-detail' },
+          { icon: <BookOpen size={20} />, label: '学习资料', id: 'learning', active: currentView === 'learning' || currentView === 'learning-create' || currentView === 'learning-detail' },
+          { icon: <ShoppingCart size={20} />, label: '积分商城', id: 'shop', active: currentView === 'shop' || currentView === 'shop-add-product' || currentView === 'shop-add-activity' },
         ]} />
-        <NavSection title="营销策略" onViewChange={onViewChange} items={[
+        <NavSection title="策略引擎" onViewChange={onViewChange} items={[
+          { icon: <Tag size={20} />, label: '标签列表', id: 'tag-list', active: currentView === 'tag-list' },
           { icon: <Tags size={20} />, label: '标签规则库', id: 'tags', active: currentView === 'tags' },
-          { icon: <Target size={20} />, label: '营销策略', id: 'strategy' },
+          { icon: <Target size={20} />, label: '策略引擎', id: 'strategy', active: currentView === 'strategy' || currentView === 'strategy-config' },
         ]} />
         <NavSection title="数据统计" onViewChange={onViewChange} items={[
-          { icon: <BarChart2 size={20} />, label: '业绩看板', id: 'stats' },
+          { icon: <BarChart2 size={20} />, label: '业绩看板', id: 'stats', active: currentView === 'stats' },
         ]} />
         <NavSection title="平台运维" onViewChange={onViewChange} items={[
-          { icon: <Monitor size={20} />, label: '监控大屏', id: 'monitor' },
-          { icon: <Receipt size={20} />, label: '财务对账', id: 'finance' },
+          { icon: <Monitor size={20} />, label: '监控大屏', id: 'monitor', active: currentView === 'monitor' },
+          { icon: <Receipt size={20} />, label: '财务对账', id: 'finance', active: currentView === 'finance' },
           { icon: <ShieldCheck size={20} />, label: '权限管理', id: 'permissions', active: currentView === 'permissions' },
         ]} />
       </nav>
@@ -159,7 +172,25 @@ const Header = () => (
   </header>
 );
 
-const MainContent = ({ onCreateClick }: { onCreateClick: () => void }) => {
+const MainContent = ({
+  onCreateClick,
+  onOpenDetail,
+  activityRows,
+}: {
+  onCreateClick: () => void;
+  onOpenDetail: (id: string) => void;
+  activityRows: Array<{
+    id: string;
+    name: string;
+    type: string;
+    version: string;
+    status: string;
+    updateTime: string;
+    icon: React.ReactNode;
+    iconBg: string;
+    iconColor: string;
+  }>;
+}) => {
   return (
     <main className="flex-1 overflow-y-auto p-8 bg-gray-50">
       <div className="max-w-[1200px] mx-auto space-y-6">
@@ -235,7 +266,7 @@ const MainContent = ({ onCreateClick }: { onCreateClick: () => void }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {activities.map((activity, idx) => (
+              {activityRows.map((activity, idx) => (
                 <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
@@ -266,7 +297,7 @@ const MainContent = ({ onCreateClick }: { onCreateClick: () => void }) => {
                     <div className="flex justify-end gap-3 text-sm font-bold">
                       <button className="text-blue-600 hover:underline cursor-pointer">编辑</button>
                       <button className="text-blue-600 hover:underline cursor-pointer">版本</button>
-                      <button className="text-gray-400 hover:text-gray-600 cursor-pointer transition-colors">预览</button>
+                      <button onClick={() => onOpenDetail(activity.id)} className="text-blue-600 hover:underline cursor-pointer transition-colors">详情</button>
                     </div>
                   </td>
                 </tr>
@@ -324,7 +355,7 @@ const StatusBadge = ({ status }: { status: string }) => {
   return null;
 };
 
-const activities = [
+const defaultActivities = [
   {
     id: 'ACT-20231101-01',
     name: '双十一健康险大促',
@@ -370,6 +401,77 @@ const activities = [
     iconColor: 'text-green-600'
   }
 ];
+
+const ActivityDetailPage = ({ onBack, activityId }: { onBack: () => void; activityId: string }) => {
+  const activityName = defaultActivities.find((a) => a.id === activityId)?.name || '2024年终保险促销活动';
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+      <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600">
+            <ArrowLeft size={16} />
+            返回活动中心
+          </button>
+          <h2 className="text-xl font-bold text-gray-900">活动详情</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="px-4 h-10 rounded-lg border border-gray-200 text-sm font-semibold text-gray-700">编辑活动</button>
+          <button className="px-4 h-10 rounded-lg border border-red-200 text-sm font-semibold text-red-600 bg-red-50">停止活动</button>
+        </div>
+      </header>
+      <main className="flex-1 overflow-auto p-8">
+        <div className="max-w-[1220px] mx-auto space-y-6">
+          <div className="rounded-xl border border-gray-200 bg-white p-6">
+            <div className="flex items-center gap-3">
+              <h3 className="text-2xl font-black text-gray-900">{activityName}</h3>
+              <span className="px-2 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">进行中</span>
+            </div>
+            <div className="mt-2 text-sm text-gray-500 flex items-center gap-5">
+              <span>创建日期：2024-11-20</span>
+              <span>单次奖励：500 积分</span>
+              <span>结束倒计时：12天</span>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <p className="text-sm text-gray-500">累计参与人数</p>
+              <p className="mt-2 text-3xl font-black text-gray-900">12,482</p>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <p className="text-sm text-gray-500">累计发放积分</p>
+              <p className="mt-2 text-3xl font-black text-blue-600">6,241,000</p>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <p className="text-sm text-gray-500">平均转化率</p>
+              <p className="mt-2 text-3xl font-black text-gray-900">8.45%</p>
+            </div>
+          </div>
+          <section className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+            <div className="h-12 px-5 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+              <h4 className="text-sm font-bold text-gray-900">活动内容配置</h4>
+              <button className="text-sm text-blue-600 font-semibold">全屏预览</button>
+            </div>
+            <div className="p-5 grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <div className="aspect-video rounded-lg bg-gray-100 border border-gray-200 overflow-hidden">
+                <img src="https://picsum.photos/seed/act_banner/960/540" alt="活动主图" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs font-bold text-gray-500 uppercase">活动文案</p>
+                  <p className="mt-2 text-sm text-gray-700 leading-7">暖冬回馈，保障升级。参与活动完成任务即可获赠积分奖励，推荐好友参与可叠加激励。</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-3 border border-gray-200 rounded-lg text-sm text-gray-700">宣传视频：promo_video_v1.mp4</div>
+                  <div className="p-3 border border-gray-200 rounded-lg text-sm text-gray-700">落地页：pages.ins/2024-promo</div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  );
+};
 
 const CreateActivity = ({ onBack }: { onBack: () => void }) => {
   return (
@@ -531,7 +633,7 @@ const CreateActivity = ({ onBack }: { onBack: () => void }) => {
   );
 };
 
-const TenantListPage = ({ tenants, onCreate }: { tenants: PTenant[]; onCreate: () => void }) => {
+const TenantListPage = ({ tenants, onCreate, onOpenDetail }: { tenants: PTenant[]; onCreate: () => void; onOpenDetail: () => void }) => {
   const rows = tenants.length
     ? tenants
     : [
@@ -574,9 +676,9 @@ const TenantListPage = ({ tenants, onCreate }: { tenants: PTenant[]; onCreate: (
           <table className="w-full text-left">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">租户ID</th>
-                <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">类型</th>
                 <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">租户名称</th>
+                <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">类型</th>
+                <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">租户ID</th>
                 <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">状态</th>
                 <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase text-right">操作</th>
               </tr>
@@ -584,9 +686,9 @@ const TenantListPage = ({ tenants, onCreate }: { tenants: PTenant[]; onCreate: (
             <tbody className="divide-y divide-gray-100">
               {rows.map((row: any) => (
                 <tr key={row.id} className="hover:bg-gray-50/70">
-                  <td className="px-6 py-4 text-sm text-gray-700 font-medium">TNT-{row.id}</td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{row.type === 'company' ? '公司' : '个人'}</td>
                   <td className="px-6 py-4 text-sm font-semibold text-gray-900">{row.name}</td>
+                  <td className="px-6 py-4 text-sm text-gray-700">{row.type === 'company' ? '公司' : '个人'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-700 font-medium">TNT-{row.id}</td>
                   <td className="px-6 py-4">
                     <span
                       className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
@@ -597,7 +699,7 @@ const TenantListPage = ({ tenants, onCreate }: { tenants: PTenant[]; onCreate: (
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button className="text-blue-600 hover:text-blue-700 text-sm font-bold">修改</button>
+                    <button onClick={onOpenDetail} className="text-blue-600 hover:text-blue-700 text-sm font-bold">修改</button>
                   </td>
                 </tr>
               ))}
@@ -609,9 +711,18 @@ const TenantListPage = ({ tenants, onCreate }: { tenants: PTenant[]; onCreate: (
   );
 };
 
-const CreateTenantPage = ({ onCancel }: { onCancel: () => void }) => {
+const CreateTenantPage = ({
+  onCancel,
+  onCreate,
+}: {
+  onCancel: () => void;
+  onCreate: (payload: { name: string; type: 'company' | 'individual' }) => Promise<void>;
+}) => {
   const [tenantType, setTenantType] = useState<'company' | 'personal'>('company');
   const [plan, setPlan] = useState<'basic' | 'pro' | 'enterprise'>('basic');
+  const [tenantName, setTenantName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-[#f5f7fb]">
@@ -640,7 +751,12 @@ const CreateTenantPage = ({ onCancel }: { onCancel: () => void }) => {
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="text-sm font-semibold text-gray-700">
               {tenantType === 'company' ? '公司名称' : '代理名称'}
-              <input className="mt-2 w-full rounded-lg border border-gray-200 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/30" placeholder={tenantType === 'company' ? 'e.g. Acme Corporation' : 'e.g. Liam Henderson'} />
+              <input
+                value={tenantName}
+                onChange={(e) => setTenantName(e.target.value)}
+                className="mt-2 w-full rounded-lg border border-gray-200 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/30"
+                placeholder={tenantType === 'company' ? 'e.g. Acme Corporation' : 'e.g. Liam Henderson'}
+              />
             </label>
             <label className="text-sm font-semibold text-gray-700">
               营业执照代码
@@ -675,12 +791,34 @@ const CreateTenantPage = ({ onCancel }: { onCancel: () => void }) => {
               ))}
             </div>
           </div>
+          {submitError && (
+            <div className="mx-6 mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{submitError}</div>
+          )}
           <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
             <button onClick={onCancel} className="px-4 py-2 text-sm font-semibold text-gray-600">
               取消
             </button>
-            <button className="px-5 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700">
-              创建租户
+            <button
+              disabled={submitting}
+              onClick={async () => {
+                const name = tenantName.trim();
+                if (!name) {
+                  setSubmitError('请输入租户名称');
+                  return;
+                }
+                try {
+                  setSubmitting(true);
+                  setSubmitError('');
+                  await onCreate({ name, type: tenantType === 'company' ? 'company' : 'individual' });
+                } catch (err: any) {
+                  setSubmitError(err?.message || '创建租户失败');
+                } finally {
+                  setSubmitting(false);
+                }
+              }}
+              className="px-5 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-60"
+            >
+              {submitting ? '创建中...' : '创建租户'}
             </button>
           </div>
         </div>
@@ -689,9 +827,973 @@ const CreateTenantPage = ({ onCancel }: { onCancel: () => void }) => {
   );
 };
 
+const MallManagementPage = ({
+  onAddProduct,
+  onAddActivity,
+  products,
+  activities,
+}: {
+  onAddProduct: () => void;
+  onAddActivity: () => void;
+  products: PMallProduct[];
+  activities: PMallActivity[];
+}) => {
+  const [activeTab, setActiveTab] = useState<'products' | 'activities'>('products');
+  const productRows = products.length
+    ? products.map((row) => ({
+        order: (row as any).sortOrder || row.id,
+        name: (row as any).title || (row as any).name || `商品-${row.id}`,
+        points: Number((row as any).points ?? (row as any).pointsCost ?? 0).toLocaleString(),
+        stock: Number(row.stock || 0),
+        status: ((row as any).status === 'active' || (row as any).shelfStatus === 'on') ? '进行中' : '已结束',
+        updatedAt: String((row as any).updatedAt || (row as any).createdAt || '').slice(0, 16).replace('T', ' '),
+      }))
+    : [
+        { order: 1, name: '精品限定手办 - 晴天娃娃', points: '5,000', stock: 128, status: '进行中', updatedAt: '2023-11-20 14:30' },
+      ];
+  const activityRows = activities.length
+    ? activities.map((row) => ({
+        order: (row as any).sortOrder || row.id,
+        name: row.title,
+        type: (row as any).type || (row as any).category || 'task',
+        reward: Number((row as any).rewardPoints || 0).toLocaleString(),
+        status: ((row as any).status === 'active' || (row as any).status === 'published') ? '进行中' : '已结束',
+        updatedAt: String((row as any).updatedAt || (row as any).createdAt || '').slice(0, 16).replace('T', ' '),
+      }))
+    : [
+        { order: 1, name: '健康跑挑战赛', type: '教育问答', reward: '500', status: '进行中', updatedAt: '2023-11-23 11:20' },
+      ];
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+      <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between shrink-0">
+        <h2 className="text-2xl font-bold text-gray-900">积分商城</h2>
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input className="h-11 w-72 rounded-xl bg-gray-100 border-none pl-10 pr-4 text-sm outline-none" placeholder="搜索商品..." />
+          </div>
+          <button className="px-5 h-11 rounded-xl bg-blue-600 text-white text-sm font-bold">个人中心</button>
+        </div>
+      </header>
+
+      <main className="flex-1 overflow-auto p-8">
+        <div className="max-w-[1180px] mx-auto space-y-6">
+          <div className="flex items-center gap-6 border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab('products')}
+              className={`pb-3 text-sm font-semibold ${activeTab === 'products' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
+            >
+              商品货架
+            </button>
+            <button
+              onClick={() => setActiveTab('activities')}
+              className={`pb-3 text-sm font-semibold ${activeTab === 'activities' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
+            >
+              活动货架
+            </button>
+          </div>
+
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="text-2xl font-bold text-gray-900">{activeTab === 'products' ? '商品货架管理' : '活动货架管理'}</h3>
+              <p className="text-gray-500 mt-1">管理积分商城中所有可兑换内容</p>
+            </div>
+            <button
+              onClick={activeTab === 'products' ? onAddProduct : onAddActivity}
+              className="px-5 h-12 rounded-xl bg-blue-600 text-white font-bold shadow-lg shadow-blue-600/20 flex items-center gap-2"
+            >
+              <Plus size={16} />
+              {activeTab === 'products' ? '新增上架商品' : '新增上架活动'}
+            </button>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+            <table className="w-full text-left">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">展示排序</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">{activeTab === 'products' ? '商品名称' : '活动名称'}</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">{activeTab === 'products' ? '所需积分' : '活动类型'}</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">{activeTab === 'products' ? '库存' : '关联积分奖励'}</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">状态</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">更新时间</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">操作</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {(activeTab === 'products' ? productRows : activityRows).map((row, idx) => (
+                  <tr key={idx} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <span className="inline-flex w-12 h-9 rounded-lg bg-gray-100 items-center justify-center text-sm font-bold text-gray-700">{row.order}</span>
+                    </td>
+                    <td className="px-6 py-4 text-sm font-semibold text-gray-900 max-w-xs">{row.name}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-blue-600">{activeTab === 'products' ? (row as any).points : (row as any).type}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{activeTab === 'products' ? (row as any).stock : (row as any).reward}</td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${(row as any).status === '进行中' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
+                        {(row as any).status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{(row as any).updatedAt}</td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-4 text-sm font-bold">
+                        <button className="text-blue-600">编辑</button>
+                        <button className="text-red-500">删除</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+};
+
+const AddMallProductPage = ({
+  onBack,
+  onSubmit,
+}: {
+  onBack: () => void;
+  onSubmit: (payload: { title: string; points: number; stock: number; sortOrder: number }) => Promise<void>;
+}) => {
+  const [title, setTitle] = useState('');
+  const [points, setPoints] = useState(0);
+  const [stock, setStock] = useState(0);
+  const [sortOrder, setSortOrder] = useState(99);
+  const [submitting, setSubmitting] = useState(false);
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+      <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600 transition-colors"
+          >
+            <ArrowLeft size={16} />
+            返回
+          </button>
+          <span className="text-gray-300">|</span>
+          <div className="text-sm text-gray-500">内容与营销 &gt; 积分商城 &gt; 新增商品</div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={onBack} className="px-6 h-10 rounded-xl border border-gray-200 text-gray-700 text-sm font-semibold">取消</button>
+          <button
+            onClick={async () => {
+              if (!title.trim()) return;
+              try {
+                setSubmitting(true);
+                await onSubmit({ title: title.trim(), points, stock, sortOrder });
+              } finally {
+                setSubmitting(false);
+              }
+            }}
+            className="px-6 h-10 rounded-xl bg-blue-600 text-white text-sm font-bold"
+          >
+            {submitting ? '保存中...' : '保存并上架'}
+          </button>
+        </div>
+      </header>
+      <main className="flex-1 overflow-auto p-8">
+        <div className="max-w-[1180px] mx-auto">
+          <h2 className="text-3xl font-bold text-gray-900">新增商城商品</h2>
+          <p className="text-gray-500 mt-2">在积分商城中创建一个新的兑换商品，请填写详细信息。</p>
+          <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 bg-white border border-gray-200 rounded-2xl overflow-hidden">
+              <div className="px-6 py-5 border-b border-gray-100 text-xl font-bold text-gray-900">基础信息</div>
+              <div className="p-6 space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <label className="text-sm font-bold text-gray-800">商品标题 *
+                    <input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-4 text-sm outline-none" placeholder="例如：高端定制体检套餐" />
+                  </label>
+                  <label className="text-sm font-bold text-gray-800">所需积分 *
+                    <div className="mt-2 relative">
+                      <input value={points} onChange={(e) => setPoints(Number(e.target.value || 0))} className="w-full h-11 rounded-xl border border-gray-200 px-4 pr-10 text-sm outline-none" placeholder="请输入分值" />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">积分</span>
+                    </div>
+                  </label>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <label className="text-sm font-bold text-gray-800">商品分类
+                    <select className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-4 text-sm outline-none"><option>实物礼品 (Gift)</option></select>
+                  </label>
+                  <label className="text-sm font-bold text-gray-800">初始库存
+                    <input value={stock} onChange={(e) => setStock(Number(e.target.value || 0))} className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-4 text-sm outline-none" />
+                  </label>
+                  <label className="text-sm font-bold text-gray-800">上架排序
+                    <input value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value || 99))} className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-4 text-sm outline-none" />
+                  </label>
+                </div>
+                <label className="block text-sm font-bold text-gray-800">商品描述
+                  <div className="mt-2 border border-gray-200 rounded-xl overflow-hidden">
+                    <div className="h-11 px-4 flex items-center gap-3 bg-gray-50 border-b border-gray-100">
+                      <Bold size={16} /><Italic size={16} /><ListIcon size={16} /><ImageIcon size={16} /><Link size={16} />
+                    </div>
+                    <textarea className="w-full min-h-52 p-4 text-sm outline-none resize-none" placeholder="请输入详细的商品兑换说明、使用规则等内容..." />
+                  </div>
+                </label>
+              </div>
+            </div>
+            <div className="space-y-6">
+              <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                <div className="px-6 py-5 border-b border-gray-100 text-xl font-bold text-gray-900">商品图片</div>
+                <div className="p-6">
+                  <div className="h-72 border-2 border-dashed border-blue-100 rounded-2xl bg-blue-50/20 flex flex-col items-center justify-center text-center">
+                    <UploadCloud size={30} className="text-blue-600" />
+                    <p className="text-lg font-semibold text-gray-900 mt-4">点击上传图片</p>
+                    <p className="text-xs text-gray-400 mt-2">支持 JPG, PNG, WEBP (最大 2MB)</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                <div className="px-6 py-5 border-b border-gray-100 text-xl font-bold text-gray-900">兑换设置</div>
+                <div className="p-6 space-y-4 text-sm">
+                  <label className="flex items-center justify-between"><span>限制每人兑换数量</span><input type="checkbox" /></label>
+                  <label className="flex items-center justify-between"><span>仅限VIP用户兑换</span><input type="checkbox" /></label>
+                  <label className="flex items-center justify-between"><span>开启活动倒计时</span><input type="checkbox" /></label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+};
+
+const AddMallActivityPage = ({
+  onBack,
+  onSubmit,
+}: {
+  onBack: () => void;
+  onSubmit: (payload: { title: string; type: string; rewardPoints: number; sortOrder: number }) => Promise<void>;
+}) => {
+  const [title, setTitle] = useState('');
+  const [displayTitle, setDisplayTitle] = useState('');
+  const [type, setType] = useState('task');
+  const [rewardPoints, setRewardPoints] = useState(0);
+  const [sortOrder, setSortOrder] = useState(10);
+  const [submitting, setSubmitting] = useState(false);
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+      <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600 transition-colors"
+          >
+            <ArrowLeft size={16} />
+            返回
+          </button>
+          <span className="text-gray-300">|</span>
+          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><Megaphone size={20} /> 积分商城管理</h2>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={onBack} className="px-6 h-10 rounded-xl border border-gray-200 text-gray-700 font-semibold">取消</button>
+          <button
+            onClick={async () => {
+              if (!title.trim() && !displayTitle.trim()) return;
+              try {
+                setSubmitting(true);
+                await onSubmit({
+                  title: (displayTitle || title).trim(),
+                  type,
+                  rewardPoints,
+                  sortOrder,
+                });
+              } finally {
+                setSubmitting(false);
+              }
+            }}
+            className="px-6 h-10 rounded-xl bg-blue-600 text-white font-bold"
+          >
+            {submitting ? '上架中...' : '确认并上架'}
+          </button>
+        </div>
+      </header>
+      <main className="flex-1 overflow-auto p-8">
+        <div className="max-w-[1180px] mx-auto">
+          <div className="text-sm text-gray-500">积分商城 &gt; 活动货架 &gt; 新增上架活动</div>
+          <h2 className="text-3xl font-bold text-gray-900 mt-3">新增上架活动</h2>
+          <p className="text-gray-500 mt-2">配置活动在积分商城货架上的展示方式。</p>
+          <div className="mt-6 bg-white border border-gray-200 rounded-2xl overflow-hidden">
+            <div className="px-6 py-5 border-b border-gray-100 text-xl font-bold text-gray-900">活动配置</div>
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label className="text-sm font-bold text-gray-800">活动名称 *
+                  <input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-4 text-sm outline-none" placeholder="从活动中心选择" />
+                </label>
+                <label className="text-sm font-bold text-gray-800">展示标题 *
+                  <input value={displayTitle} onChange={(e) => setDisplayTitle(e.target.value)} className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-4 text-sm outline-none" placeholder="输入在积分商城的展示名称" />
+                </label>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <p className="text-sm font-bold text-gray-800 mb-2">展示图片</p>
+                  <div className="h-44 border-2 border-dashed border-blue-100 rounded-2xl bg-blue-50/20 flex flex-col items-center justify-center text-center">
+                    <ImageIcon size={24} className="text-blue-600" />
+                    <p className="text-blue-600 text-sm font-semibold mt-3">点击上传 或拖拽文件至此</p>
+                    <p className="text-xs text-gray-400 mt-1">支持 PNG, JPG, GIF，最大 2MB</p>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <label className="text-sm font-bold text-gray-800 block">活动类型
+                    <select value={type} onChange={(e) => setType(e.target.value)} className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-4 text-sm outline-none">
+                      <option value="task">任务活动</option>
+                      <option value="competition">竞赛活动</option>
+                      <option value="invite">邀请活动</option>
+                    </select>
+                  </label>
+                  <label className="text-sm font-bold text-gray-800 block">所需积分
+                    <div className="mt-2 relative">
+                      <input value={rewardPoints} onChange={(e) => setRewardPoints(Number(e.target.value || 0))} className="w-full h-11 rounded-xl border border-gray-200 px-4 pr-10 text-sm outline-none" />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">积分</span>
+                    </div>
+                  </label>
+                  <label className="text-sm font-bold text-gray-800 block">显示排序
+                    <input value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value || 10))} className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-4 text-sm outline-none" placeholder="例如：10" />
+                  </label>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-gray-800 mb-2">活动描述（预览）</p>
+                <div className="p-5 rounded-xl bg-gray-50 border border-gray-200 text-gray-500">
+                  请从下拉列表中选择一个活动，以预览其原始配置和描述。此字段为只读，直接从活动中心素材中调取。
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+              <button className="px-6 h-10 rounded-xl border border-gray-200 text-gray-700 font-semibold">保存草稿</button>
+              <button className="px-6 h-10 rounded-xl bg-blue-600 text-white font-bold">确认并上架</button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+};
+
+const TenantDetailPage = ({ onBack }: { onBack: () => void }) => (
+  <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+    <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center gap-4">
+      <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600"><ArrowLeft size={16} />返回</button>
+      <h2 className="text-xl font-bold text-gray-900">租户详情与配额</h2>
+    </header>
+    <main className="flex-1 overflow-auto p-8">
+      <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2 bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
+          <h3 className="text-lg font-bold text-gray-900">租户基础信息</h3>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div><span className="text-gray-500">租户名称</span><p className="font-semibold mt-1">Atlas Global Insurance</p></div>
+            <div><span className="text-gray-500">租户类型</span><p className="font-semibold mt-1">公司</p></div>
+            <div><span className="text-gray-500">管理员邮箱</span><p className="font-semibold mt-1">admin@atlas.com</p></div>
+            <div><span className="text-gray-500">状态</span><p className="font-semibold mt-1 text-emerald-600">已激活</p></div>
+          </div>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-2xl p-6">
+          <h3 className="text-lg font-bold text-gray-900">套餐配额</h3>
+          <p className="text-sm text-gray-500 mt-1">企业版</p>
+          <div className="mt-5 space-y-3 text-sm">
+            <div><p className="text-gray-500">用户数</p><p className="font-semibold">42 / 100</p></div>
+            <div><p className="text-gray-500">活动数</p><p className="font-semibold">18 / 50</p></div>
+            <div><p className="text-gray-500">素材存储</p><p className="font-semibold">12.4GB / 50GB</p></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+);
+
+const LabelListPage = () => (
+  <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+    <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <h2 className="text-xl font-bold text-gray-900">标签列表</h2>
+        <span className="text-sm text-gray-500">营销策略 / 标签列表</span>
+      </div>
+      <button className="px-4 h-10 rounded-lg bg-blue-600 text-white text-sm font-bold">新建标签</button>
+    </header>
+    <main className="flex-1 overflow-auto p-8">
+      <div className="max-w-[1220px] mx-auto space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <p className="text-sm text-gray-500">标签总数</p>
+            <p className="mt-2 text-3xl font-black text-gray-900">1,284</p>
+            <p className="mt-1 text-xs text-emerald-600 font-semibold">较上月 +12%</p>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <p className="text-sm text-gray-500">今日新增</p>
+            <p className="mt-2 text-3xl font-black text-gray-900">56</p>
+            <p className="mt-1 text-xs text-gray-400">新增自定义标签</p>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <p className="text-sm text-gray-500">活跃标签</p>
+            <p className="mt-2 text-3xl font-black text-gray-900">856</p>
+            <p className="mt-1 text-xs text-gray-400">过去 7 天有命中</p>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <p className="text-sm text-gray-500">覆盖客户数</p>
+            <p className="mt-2 text-3xl font-black text-gray-900">12,430</p>
+            <p className="mt-1 text-xs text-gray-400">去重后客户</p>
+          </div>
+        </div>
+
+        <div className="flex flex-col md:flex-row justify-between gap-4">
+          <div className="relative w-full md:max-w-md">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500/20"
+              placeholder="搜索标签名称、编码或创建人"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <button className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 font-semibold flex items-center gap-2">
+              <Filter size={16} />
+              筛选
+            </button>
+            <button className="px-5 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold">批量操作</button>
+          </div>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <table className="w-full text-left">
+            <thead className="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">标签名称</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">标签编码</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">命中人数</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">标签来源</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">更新时间</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">操作</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {[
+                ['高净值', 'TAG_HNW_001', 1240, '规则引擎', '2026-02-25 10:32'],
+                ['养老规划', 'TAG_RET_019', 865, '手动创建', '2026-02-24 19:10'],
+                ['续保意向', 'TAG_RENEW_024', 1188, '规则引擎', '2026-02-24 14:28'],
+                ['新线索', 'TAG_LEAD_007', 334, '导入同步', '2026-02-23 21:02'],
+              ].map((row) => (
+                <tr key={row[1] as string} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 text-sm font-semibold text-gray-900">{row[0]}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{row[1]}</td>
+                  <td className="px-6 py-4 text-sm text-gray-800 font-semibold">{(row[2] as number).toLocaleString()}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{row[3]}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{row[4]}</td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-3">
+                      <button className="text-blue-600 text-sm font-bold">编辑</button>
+                      <button className="text-red-500 text-sm font-bold">删除</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+            <p className="text-xs text-gray-500">显示 1 到 4，共 1284 条</p>
+            <div className="flex items-center gap-1">
+              <button className="w-8 h-8 rounded border border-gray-200 text-gray-500 flex items-center justify-center">
+                <ChevronLeft size={14} />
+              </button>
+              <button className="w-8 h-8 rounded bg-blue-600 text-white text-xs font-bold">1</button>
+              <button className="w-8 h-8 rounded border border-gray-200 text-xs font-semibold text-gray-700">2</button>
+              <button className="w-8 h-8 rounded border border-gray-200 text-xs font-semibold text-gray-700">3</button>
+              <button className="w-8 h-8 rounded border border-gray-200 text-gray-500 flex items-center justify-center">
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+);
+
+const StrategyListPage = ({ onCreate }: { onCreate: () => void }) => (
+  <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+    <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between">
+      <h2 className="text-xl font-bold text-gray-900">策略引擎</h2>
+      <button onClick={onCreate} className="px-4 h-10 rounded-lg bg-blue-600 text-white text-sm font-bold">新增策略引擎</button>
+    </header>
+    <main className="flex-1 overflow-auto p-8">
+      <div className="max-w-[1220px] mx-auto bg-white border border-gray-200 rounded-2xl overflow-hidden">
+        <div className="h-14 px-5 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+          <div className="relative w-96">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input className="w-full h-9 rounded-lg border border-gray-200 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-blue-500/20" placeholder="搜索策略名称/策略ID..." />
+          </div>
+          <span className="text-xs text-gray-500">共 3 条策略</span>
+        </div>
+        <table className="w-full text-left">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-5 py-3 text-xs uppercase text-gray-500 font-bold">策略名称</th>
+              <th className="px-5 py-3 text-xs uppercase text-gray-500 font-bold">策略ID</th>
+              <th className="px-5 py-3 text-xs uppercase text-gray-500 font-bold">状态</th>
+              <th className="px-5 py-3 text-xs uppercase text-gray-500 font-bold">最近执行</th>
+              <th className="px-5 py-3 text-xs uppercase text-gray-500 font-bold text-right">操作</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {[
+              ['高净值客户自动成交', 'POLICY-20260225-01', '启用', '2026-02-25 10:32'],
+              ['高潜客7天跟进提醒', 'POLICY-20260224-02', '启用', '2026-02-25 09:10'],
+              ['沉默客户激活流程', 'POLICY-20260221-01', '草稿', '-'],
+            ].map((row) => (
+              <tr key={row[1]} className="hover:bg-gray-50">
+                <td className="px-5 py-4 text-sm font-semibold text-gray-900">{row[0]}</td>
+                <td className="px-5 py-4 text-sm text-gray-700">{row[1]}</td>
+                <td className="px-5 py-4">
+                  <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${row[2] === '启用' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>{row[2]}</span>
+                </td>
+                <td className="px-5 py-4 text-sm text-gray-600">{row[3]}</td>
+                <td className="px-5 py-4 text-right">
+                  <button onClick={onCreate} className="text-blue-600 text-sm font-bold">编辑</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+);
+
+const StrategyCanvasPage = ({ onBack }: { onBack: () => void }) => (
+  <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+    <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600">
+          <ArrowLeft size={16} />
+          返回列表
+        </button>
+        <h2 className="text-xl font-bold text-gray-900">策略引擎配置</h2>
+      </div>
+      <button className="px-4 h-10 rounded-lg bg-blue-600 text-white text-sm font-bold">发布策略</button>
+    </header>
+    <main className="flex-1 overflow-auto p-8">
+      <div className="max-w-[1320px] mx-auto space-y-6">
+        <div className="rounded-2xl border border-gray-200 bg-white p-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 rounded-xl bg-blue-50 border border-blue-100">
+              <p className="text-xs text-blue-600 font-bold uppercase">触发器</p>
+              <p className="mt-2 font-semibold text-gray-900">客户标签命中：高净值</p>
+            </div>
+            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+              <p className="text-xs text-emerald-600 font-bold uppercase">条件</p>
+              <p className="mt-2 font-semibold text-gray-900">7天内未跟进</p>
+            </div>
+            <div className="p-4 rounded-xl bg-orange-50 border border-orange-100">
+              <p className="text-xs text-orange-600 font-bold uppercase">动作</p>
+              <p className="mt-2 font-semibold text-gray-900">分配给指定业务员并推送提醒</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+          <section className="xl:col-span-3 rounded-2xl border border-gray-200 bg-white overflow-hidden">
+            <div className="h-12 px-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+              <div className="text-sm font-semibold text-gray-700">画布区</div>
+              <div className="flex items-center gap-2 text-xs">
+                <button className="px-3 h-8 rounded-lg border border-gray-200 text-gray-600 bg-white">缩小</button>
+                <button className="px-3 h-8 rounded-lg border border-gray-200 text-gray-600 bg-white">100%</button>
+                <button className="px-3 h-8 rounded-lg border border-gray-200 text-gray-600 bg-white">放大</button>
+              </div>
+            </div>
+            <div className="p-6 bg-[radial-gradient(circle_at_1px_1px,#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] min-h-[520px]">
+              <div className="flex items-center gap-4">
+                <div className="w-60 p-4 rounded-xl border border-blue-200 bg-blue-50">
+                  <p className="text-xs font-bold text-blue-600">触发器</p>
+                  <p className="mt-2 text-sm font-semibold text-gray-900">命中标签：高净值</p>
+                </div>
+                <div className="h-[2px] w-12 bg-blue-300" />
+                <div className="w-60 p-4 rounded-xl border border-emerald-200 bg-emerald-50">
+                  <p className="text-xs font-bold text-emerald-600">条件</p>
+                  <p className="mt-2 text-sm font-semibold text-gray-900">7天未跟进</p>
+                </div>
+                <div className="h-[2px] w-12 bg-blue-300" />
+                <div className="w-64 p-4 rounded-xl border border-orange-200 bg-orange-50">
+                  <p className="text-xs font-bold text-orange-600">动作</p>
+                  <p className="mt-2 text-sm font-semibold text-gray-900">自动分配线索 + 发送提醒</p>
+                </div>
+              </div>
+
+              <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 rounded-xl border border-gray-200 bg-white">
+                  <p className="text-xs text-gray-500">策略ID</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900">POLICY-20260225-01</p>
+                </div>
+                <div className="p-4 rounded-xl border border-gray-200 bg-white">
+                  <p className="text-xs text-gray-500">命中客户</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900">128 人</p>
+                </div>
+                <div className="p-4 rounded-xl border border-gray-200 bg-white">
+                  <p className="text-xs text-gray-500">执行成功率</p>
+                  <p className="mt-1 text-sm font-semibold text-emerald-600">98.7%</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <aside className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+            <div className="h-12 px-4 border-b border-gray-100 bg-gray-50 flex items-center">
+              <span className="text-sm font-semibold text-gray-700">规则属性</span>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <p className="text-xs text-gray-500">策略名称</p>
+                <p className="text-sm font-semibold text-gray-900 mt-1">高净值客户自动跟进</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">优先级</p>
+                <p className="text-sm font-semibold text-gray-900 mt-1">P1</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">执行频率</p>
+                <p className="text-sm font-semibold text-gray-900 mt-1">每 1 小时</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">最近执行</p>
+                <p className="text-sm font-semibold text-gray-900 mt-1">2026-02-25 10:32</p>
+              </div>
+              <button className="w-full h-10 rounded-lg bg-blue-600 text-white text-sm font-bold">保存草稿</button>
+            </div>
+          </aside>
+        </div>
+
+        <section className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+          <div className="h-12 px-4 border-b border-gray-100 bg-gray-50 flex items-center">
+            <span className="text-sm font-semibold text-gray-700">执行日志</span>
+          </div>
+          <div className="p-4">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="text-xs uppercase text-gray-500">
+                  <th className="py-2">时间</th>
+                  <th className="py-2">目标客户</th>
+                  <th className="py-2">执行动作</th>
+                  <th className="py-2">结果</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 text-sm text-gray-700">
+                <tr>
+                  <td className="py-3">2026-02-25 10:32:10</td>
+                  <td className="py-3">C-10982</td>
+                  <td className="py-3">分配给业务员 A12</td>
+                  <td className="py-3 text-emerald-600 font-semibold">成功</td>
+                </tr>
+                <tr>
+                  <td className="py-3">2026-02-25 10:31:42</td>
+                  <td className="py-3">C-10711</td>
+                  <td className="py-3">发送跟进提醒</td>
+                  <td className="py-3 text-emerald-600 font-semibold">成功</td>
+                </tr>
+                <tr>
+                  <td className="py-3">2026-02-25 10:30:58</td>
+                  <td className="py-3">C-10267</td>
+                  <td className="py-3">分配给业务员 B03</td>
+                  <td className="py-3 text-orange-600 font-semibold">重试中</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+);
+
+const MonitorScreenPage = () => (
+  <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+    <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center">
+      <h2 className="text-xl font-bold text-gray-900">平台监控大屏</h2>
+    </header>
+    <main className="flex-1 overflow-auto p-8 grid grid-cols-1 md:grid-cols-4 gap-6">
+      {[
+        ['在线租户', '42'],
+        ['今日请求量', '128,330'],
+        ['错误率', '0.12%'],
+        ['平均响应', '83ms'],
+      ].map(([k, v]) => (
+        <div key={k} className="bg-white border border-gray-200 rounded-xl p-6">
+          <p className="text-sm text-gray-500">{k}</p>
+          <p className="text-3xl font-black text-gray-900 mt-2">{v}</p>
+        </div>
+      ))}
+    </main>
+  </div>
+);
+
+const FinanceReconcilePage = ({
+  reports,
+  onRun,
+}: {
+  reports: PReconciliationReport[];
+  onRun: () => Promise<void>;
+}) => (
+  <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+    <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between">
+      <h2 className="text-xl font-bold text-gray-900">财务对账</h2>
+      <button onClick={() => void onRun()} className="px-4 h-10 rounded-lg bg-blue-600 text-white text-sm font-bold">发起对账</button>
+    </header>
+    <main className="flex-1 overflow-auto p-8">
+      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+        <table className="w-full text-left">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">批次号</th>
+              <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">日期</th>
+              <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">状态</th>
+              <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">差异金额</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {(reports.length
+              ? reports.map((row) => [
+                  `RC-${row.day.replaceAll('-', '')}-${String(row.id).padStart(2, '0')}`,
+                  row.day,
+                  row.status === 'ok' ? '完成' : '存在差异',
+                  String(row.mismatches.length),
+                ])
+              : [['RC-20260225-01', '2026-02-25', '完成', '0']]).map((r) => (
+              <tr key={r[0] as string}>
+                <td className="px-6 py-4 text-sm font-semibold text-gray-900">{r[0]}</td>
+                <td className="px-6 py-4 text-sm text-gray-700">{r[1]}</td>
+                <td className={`px-6 py-4 text-sm font-semibold ${(r[2] as string) === '完成' ? 'text-emerald-600' : 'text-orange-600'}`}>{r[2]}</td>
+                <td className="px-6 py-4 text-sm text-gray-700">{r[3]}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+);
+
+const StatsDashboardPage = ({
+  statsRole,
+  setStatsRole,
+  tenants,
+  stats,
+  onRebuild,
+}: {
+  statsRole: 'platform' | 'company' | 'staff';
+  setStatsRole: (role: 'platform' | 'company' | 'staff') => void;
+  tenants: PTenant[];
+  stats: PStatsOverview | null;
+  onRebuild: () => Promise<void>;
+}) => {
+  const latest = stats?.latest?.metrics || {};
+  const customers = Number(latest.customers || 0);
+  const activeCustomers = Number(latest.activeCustomers || 0);
+  const paidOrders = Number(latest.paidOrders || 0);
+  const totalPoints = Number(latest.totalPoints || 0);
+  const activeRate = customers > 0 ? Math.round((activeCustomers / customers) * 100) : 0;
+
+  const trendDays = (stats?.history || []).slice(-7).map((d) => d.day.slice(5));
+  const trendCustomers = (stats?.history || []).slice(-7).map((d) => Number(d.metrics.activeCustomers || 0));
+  const maxTrend = Math.max(...trendCustomers, 1);
+  const rankingRows = [
+    { name: '李晓梅', team: '个险一部', amount: 1240500, progress: 92 },
+    { name: '王志刚', team: '团险三部', amount: 1105200, progress: 85 },
+    { name: '赵振华', team: '高端寿险组', amount: 982000, progress: 76 },
+    { name: '陈婉晴', team: '理财险二部', amount: 870400, progress: 68 },
+  ];
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden bg-[#f6f7fb]">
+      <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-5">
+          <h2 className="text-xl font-bold text-gray-900">业绩看板</h2>
+          <div className="flex items-center rounded-lg bg-gray-100 p-1">
+            <button onClick={() => setStatsRole('platform')} className={`px-4 h-8 rounded-md text-xs font-semibold ${statsRole === 'platform' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}>平台管理员</button>
+            <button onClick={() => setStatsRole('company')} className={`px-4 h-8 rounded-md text-xs font-semibold ${statsRole === 'company' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}>公司管理员</button>
+            <button onClick={() => setStatsRole('staff')} className={`px-4 h-8 rounded-md text-xs font-semibold ${statsRole === 'staff' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}>员工</button>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={onRebuild} className="px-4 h-9 rounded-lg bg-blue-600 text-white text-sm font-semibold">刷新统计</button>
+        </div>
+      </header>
+
+      <main className="flex-1 overflow-auto p-8">
+        <div className="max-w-[1280px] mx-auto space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <p className="text-xs text-gray-500 font-semibold">租户总数</p>
+              <p className="mt-2 text-3xl font-black text-gray-900">{tenants.length}</p>
+              <p className="mt-1 text-xs text-gray-400">最近统计日 {stats?.latest?.day || '-'}</p>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <p className="text-xs text-gray-500 font-semibold">客户总数</p>
+              <p className="mt-2 text-3xl font-black text-gray-900">{customers.toLocaleString()}</p>
+              <p className="mt-1 text-xs text-gray-400">活跃客户 {activeCustomers.toLocaleString()}</p>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <p className="text-xs text-gray-500 font-semibold">支付订单</p>
+              <p className="mt-2 text-3xl font-black text-gray-900">{paidOrders.toLocaleString()}</p>
+              <p className="mt-1 text-xs text-gray-400">活跃率 {activeRate}%</p>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <p className="text-xs text-gray-500 font-semibold">累计积分发放</p>
+              <p className="mt-2 text-3xl font-black text-gray-900">{totalPoints.toLocaleString()}</p>
+              <p className="mt-1 text-xs text-gray-400">当前视角 {statsRole === 'platform' ? '平台管理员' : statsRole === 'company' ? '公司管理员' : '员工'}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+            <section className="rounded-xl border border-gray-200 bg-white p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-gray-900">活跃客户趋势（近7天）</h3>
+                <span className="text-xs text-gray-500">数据来源 /api/p/stats/overview</span>
+              </div>
+              <div className="h-52 flex items-end gap-3">
+                {trendCustomers.map((v, idx) => (
+                  <div key={`${trendDays[idx]}-${idx}`} className="flex-1 flex flex-col items-center justify-end gap-2">
+                    <div className="w-full rounded-t-md bg-blue-500/75 hover:bg-blue-600 transition-colors" style={{ height: `${Math.max(12, Math.round((v / maxTrend) * 160))}px` }} />
+                    <span className="text-[11px] text-gray-400">{trendDays[idx] || '-'}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-gray-200 bg-white p-5">
+              <h3 className="text-sm font-bold text-gray-900 mb-4">目标完成进度</h3>
+              <div className="space-y-4">
+                {[
+                  ['月签单目标', 85],
+                  ['新增客户目标', 73],
+                  ['活跃转化目标', 67],
+                ].map(([name, p]) => (
+                  <div key={String(name)}>
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="text-gray-600">{name}</span>
+                      <span className="font-semibold text-gray-900">{p}%</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-full rounded-full bg-blue-600" style={{ width: `${p}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          <section className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+            <div className="px-5 h-12 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-900">团队业绩排行</h3>
+              <span className="text-xs text-gray-500">Top 4</span>
+            </div>
+            <table className="w-full text-left">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-5 py-3 text-xs uppercase text-gray-500 font-bold">排名</th>
+                  <th className="px-5 py-3 text-xs uppercase text-gray-500 font-bold">员工</th>
+                  <th className="px-5 py-3 text-xs uppercase text-gray-500 font-bold">部门</th>
+                  <th className="px-5 py-3 text-xs uppercase text-gray-500 font-bold">签单金额</th>
+                  <th className="px-5 py-3 text-xs uppercase text-gray-500 font-bold">进度</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {rankingRows.map((row, idx) => (
+                  <tr key={row.name} className="hover:bg-gray-50">
+                    <td className="px-5 py-4 text-sm font-bold text-blue-600">{String(idx + 1).padStart(2, '0')}</td>
+                    <td className="px-5 py-4 text-sm font-semibold text-gray-900">{row.name}</td>
+                    <td className="px-5 py-4 text-sm text-gray-600">{row.team}</td>
+                    <td className="px-5 py-4 text-sm font-semibold text-gray-900">¥{row.amount.toLocaleString()}</td>
+                    <td className="px-5 py-4">
+                      <div className="w-40 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                        <div className="h-full rounded-full bg-blue-600" style={{ width: `${row.progress}%` }} />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        </div>
+      </main>
+    </div>
+  );
+};
+
+function LearningDetailViewPage({ onBack, title }: { onBack: () => void; title: string }) {
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+      <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600">
+            <ArrowLeft size={16} />
+            返回学习资料
+          </button>
+          <h2 className="text-xl font-bold text-gray-900">学习资料详情</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="px-4 h-10 rounded-lg border border-gray-200 text-sm font-semibold text-gray-700">编辑资料</button>
+          <button className="px-4 h-10 rounded-lg border border-red-200 text-sm font-semibold text-red-600 bg-red-50">停止发布</button>
+        </div>
+      </header>
+      <main className="flex-1 overflow-auto p-8">
+        <div className="max-w-[1220px] mx-auto space-y-6">
+          <div className="rounded-xl border border-gray-200 bg-white p-6">
+            <div className="flex items-center gap-3">
+              <h3 className="text-2xl font-black text-gray-900">{title || '2024 新政深研'}</h3>
+              <span className="px-2 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">进行中</span>
+            </div>
+            <div className="mt-2 text-sm text-gray-500 flex items-center gap-5">
+              <span>创建于: 2024-01-15</span>
+              <span>奖励积分: 500</span>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="rounded-xl border border-gray-200 bg-white p-5"><p className="text-sm text-gray-500">累计学习人数</p><p className="mt-2 text-3xl font-black text-gray-900">12,840</p></div>
+            <div className="rounded-xl border border-gray-200 bg-white p-5"><p className="text-sm text-gray-500">累计总浏览量</p><p className="mt-2 text-3xl font-black text-gray-900">45,291</p></div>
+            <div className="rounded-xl border border-gray-200 bg-white p-5"><p className="text-sm text-gray-500">平均完成率</p><p className="mt-2 text-3xl font-black text-gray-900">86.5%</p></div>
+          </div>
+          <section className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+            <div className="h-12 px-5 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+              <h4 className="text-sm font-bold text-gray-900">资料配置预览</h4>
+              <button className="text-sm text-blue-600 font-semibold">预览全文</button>
+            </div>
+            <div className="p-5 grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <div className="aspect-video rounded-lg bg-gray-100 border border-gray-200 overflow-hidden">
+                <img src="https://picsum.photos/seed/learning_detail/960/540" alt="学习资料封面" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs font-bold text-gray-500 uppercase">资料简介</p>
+                  <p className="mt-2 text-sm text-gray-700 leading-7">本资料用于解读行业政策调整，重点覆盖税务合规、数据安全和劳务用工等关键变更，帮助业务团队快速识别风险并掌握执行策略。</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className="px-3 py-1 rounded-md text-xs font-semibold bg-gray-100 text-gray-600">#2024新政</span>
+                  <span className="px-3 py-1 rounded-md text-xs font-semibold bg-gray-100 text-gray-600">#合规培训</span>
+                  <span className="px-3 py-1 rounded-md text-xs font-semibold bg-gray-100 text-gray-600">#必修课程</span>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  );
+}
+
 export default function App() {
-  const [currentView, setCurrentView] = useState<'activity' | 'create' | 'learning' | 'tags' | 'employees' | 'permissions' | 'stats' | 'tenants' | 'create-tenant'>('tenants');
+  const [currentView, setCurrentView] = useState<'activity' | 'activity-detail' | 'create' | 'learning' | 'learning-detail' | 'learning-create' | 'shop' | 'shop-add-product' | 'shop-add-activity' | 'tag-list' | 'tags' | 'strategy' | 'strategy-config' | 'employees' | 'permissions' | 'stats' | 'monitor' | 'finance' | 'tenant-detail' | 'create-tenant' | 'tenants'>('tenants');
+  const [selectedActivityId, setSelectedActivityId] = useState('ACT-20231101-01');
+  const [selectedLearningTitle, setSelectedLearningTitle] = useState('2024 新政深研');
+  const [statsRole, setStatsRole] = useState<'platform' | 'company' | 'staff'>('platform');
   const [tenants, setTenants] = useState<PTenant[]>([]);
+  const [employees, setEmployees] = useState<PEmployee[]>([]);
+  const [mallProducts, setMallProducts] = useState<PMallProduct[]>([]);
+  const [mallActivities, setMallActivities] = useState<PMallActivity[]>([]);
+  const [liveActivities, setLiveActivities] = useState<PActivity[]>([]);
+  const [liveCourses, setLiveCourses] = useState<PLearningCourse[]>([]);
+  const [reconciliationReports, setReconciliationReports] = useState<PReconciliationReport[]>([]);
   const [stats, setStats] = useState<PStatsOverview | null>(null);
   const [permissionsData, setPermissionsData] = useState<PPermissionMatrix | null>(null);
   const [liveError, setLiveError] = useState('');
@@ -703,11 +1805,25 @@ export default function App() {
     let disposed = false;
     (async () => {
       try {
-        const [tenantRes, statsRes, permissionsRes] = await Promise.all([pApi.tenants(), pApi.stats(), pApi.permissions()]);
+        const [tenantRes, statsRes, permissionsRes, activitiesRes, coursesRes, employeesRes, mallProductsRes, mallActivitiesRes] = await Promise.all([
+          pApi.tenants(),
+          pApi.stats(),
+          pApi.permissions(),
+          pApi.activities(),
+          pApi.learningCourses(),
+          pApi.employees(),
+          pApi.mallProducts(),
+          pApi.mallActivities(),
+        ]);
         if (disposed) return;
         setTenants(tenantRes.list || []);
         setStats(statsRes || null);
         setPermissionsData(permissionsRes || null);
+        setLiveActivities(activitiesRes.activities || []);
+        setLiveCourses(coursesRes.courses || []);
+        setEmployees(employeesRes.list || []);
+        setMallProducts(mallProductsRes.list || []);
+        setMallActivities(mallActivitiesRes.list || []);
         setLiveError('');
       } catch (err: any) {
         if (disposed) return;
@@ -722,6 +1838,41 @@ export default function App() {
   useEffect(() => {
     track('p_page_view', { view: currentView });
   }, [currentView]);
+
+  const activityRows = liveActivities.length
+    ? liveActivities.map((row, idx) => ({
+        id: `ACT-${String(row.id).padStart(4, '0')}`,
+        name: row.title,
+        type:
+          row.category === 'sign'
+            ? '签到任务'
+            : row.category === 'competition'
+              ? '互动竞赛'
+              : row.category === 'invite'
+                ? '邀请任务'
+                : '通用任务',
+        version: `v1.${idx + 1}.0`,
+        status: row.canComplete === false ? 'offline' : 'online',
+        updateTime: row.completed ? '今日已完成' : '今日可参与',
+        icon:
+          row.category === 'competition' ? <HelpCircle size={20} /> : row.category === 'invite' ? <Send size={20} /> : <FileText size={20} />,
+        iconBg: row.category === 'competition' ? 'bg-orange-100' : row.category === 'invite' ? 'bg-purple-100' : 'bg-blue-100',
+        iconColor: row.category === 'competition' ? 'text-orange-600' : row.category === 'invite' ? 'text-purple-600' : 'text-blue-600',
+      }))
+    : defaultActivities;
+
+  const learningList = liveCourses.length
+    ? liveCourses.map((course, idx) => ({
+        title: course.title,
+        status: String(course.status || 'published') === 'draft' ? '草稿' : '已发布',
+        type: String(course.contentType || 'video') === 'article' ? '文章' : '视频',
+        duration: `${10 + idx}:2${idx}`,
+        category: course.category || '通用培训',
+        difficulty: String(course.level || '中级'),
+        tags: [course.category || '学习', `积分${course.points}`],
+        image: `https://picsum.photos/seed/course_${course.id}/600/400`,
+      }))
+    : materials;
 
   return (
     <div className="flex h-screen bg-gray-50 font-sans text-gray-900">
@@ -742,58 +1893,136 @@ export default function App() {
             )}
           </div>
           <Header />
-          <MainContent onCreateClick={() => setCurrentView('create')} />
+          <MainContent
+            onCreateClick={() => setCurrentView('create')}
+            onOpenDetail={(id) => {
+              setSelectedActivityId(id);
+              setCurrentView('activity-detail');
+            }}
+            activityRows={activityRows}
+          />
         </div>
       )}
+      {currentView === 'activity-detail' && (
+        <ActivityDetailPage onBack={() => setCurrentView('activity')} activityId={selectedActivityId} />
+      )}
       {currentView === 'tenants' && (
-        <TenantListPage tenants={tenants} onCreate={() => setCurrentView('create-tenant')} />
+        <TenantListPage
+          tenants={tenants}
+          onCreate={() => setCurrentView('create-tenant')}
+          onOpenDetail={() => setCurrentView('tenant-detail')}
+        />
+      )}
+      {currentView === 'tenant-detail' && (
+        <TenantDetailPage onBack={() => setCurrentView('tenants')} />
       )}
       {currentView === 'create-tenant' && (
-        <CreateTenantPage onCancel={() => setCurrentView('tenants')} />
+        <CreateTenantPage
+          onCancel={() => setCurrentView('tenants')}
+          onCreate={async (payload) => {
+            const created = await pApi.createTenant(payload);
+            setTenants((prev) => [created.tenant, ...prev]);
+            setCurrentView('tenants');
+          }}
+        />
       )}
       {currentView === 'create' && (
         <CreateActivity onBack={() => setCurrentView('activity')} />
       )}
       {currentView === 'learning' && (
-        <LearningMaterials />
+        <LearningMaterials
+          onCreate={() => setCurrentView('learning-create')}
+          onOpenDetail={(title) => {
+            setSelectedLearningTitle(title);
+            setCurrentView('learning-detail');
+          }}
+          list={learningList}
+        />
+      )}
+      {currentView === 'learning-detail' && (
+        <LearningDetailViewPage onBack={() => setCurrentView('learning')} title={selectedLearningTitle} />
+      )}
+      {currentView === 'learning-create' && (
+        <CreateLearningMaterial onBack={() => setCurrentView('learning')} />
+      )}
+      {currentView === 'shop' && (
+        <MallManagementPage
+          onAddProduct={() => setCurrentView('shop-add-product')}
+          onAddActivity={() => setCurrentView('shop-add-activity')}
+          products={mallProducts}
+          activities={mallActivities}
+        />
+      )}
+      {currentView === 'shop-add-product' && (
+        <AddMallProductPage
+          onBack={() => setCurrentView('shop')}
+          onSubmit={async (payload) => {
+            const result = await pApi.createMallProduct(payload);
+            setMallProducts((prev) => [result.product, ...prev]);
+            setCurrentView('shop');
+          }}
+        />
+      )}
+      {currentView === 'shop-add-activity' && (
+        <AddMallActivityPage
+          onBack={() => setCurrentView('shop')}
+          onSubmit={async (payload) => {
+            const result = await pApi.createMallActivity(payload);
+            setMallActivities((prev) => [result.activity, ...prev]);
+            setCurrentView('shop');
+          }}
+        />
+      )}
+      {currentView === 'tag-list' && (
+        <LabelListPage />
       )}
       {currentView === 'tags' && (
         <TagRules />
       )}
+      {currentView === 'strategy' && (
+        <StrategyListPage onCreate={() => setCurrentView('strategy-config')} />
+      )}
+      {currentView === 'strategy-config' && (
+        <StrategyCanvasPage onBack={() => setCurrentView('strategy')} />
+      )}
       {currentView === 'employees' && (
-        <EmployeeManagement />
+        <EmployeeManagement
+          employees={employees}
+          onCreateEmployee={async (payload) => {
+            const result = await pApi.createEmployee(payload);
+            setEmployees((prev) => [result.employee, ...prev]);
+          }}
+        />
       )}
       {currentView === 'permissions' && (
         <PermissionsManagement />
       )}
       {currentView === 'stats' && (
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <Header />
-          <main className="flex-1 p-8 overflow-auto">
-            <div className="rounded-xl border border-gray-200 bg-white p-6">
-              <h2 className="text-xl font-bold text-gray-900">实时统计概览</h2>
-              <p className="text-sm text-gray-500 mt-1">来自 `/api/p/stats/overview`</p>
-              <div className="mt-4 text-sm text-gray-700">
-                <div>租户数: {tenants.length}</div>
-                <div>最近统计日期: {stats?.latest?.day || '-'}</div>
-                <div>活跃客户: {stats?.latest?.metrics?.activeCustomers || 0}</div>
-                <div>支付订单: {stats?.latest?.metrics?.paidOrders || 0}</div>
-              </div>
-              <button
-                onClick={async () => {
-                  try {
-                    await pApi.rebuildStats();
-                    const next = await pApi.stats();
-                    setStats(next);
-                  } catch {}
-                }}
-                className="mt-4 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700"
-              >
-                重新聚合统计
-              </button>
-            </div>
-          </main>
-        </div>
+        <StatsDashboardPage
+          statsRole={statsRole}
+          setStatsRole={setStatsRole}
+          tenants={tenants}
+          stats={stats}
+          onRebuild={async () => {
+            try {
+              await pApi.rebuildStats();
+              const next = await pApi.stats();
+              setStats(next);
+            } catch {}
+          }}
+        />
+      )}
+      {currentView === 'monitor' && (
+        <MonitorScreenPage />
+      )}
+      {currentView === 'finance' && (
+        <FinanceReconcilePage
+          reports={reconciliationReports}
+          onRun={async () => {
+            const result = await pApi.runReconciliation();
+            setReconciliationReports((prev) => [result.report, ...prev]);
+          }}
+        />
       )}
     </div>
   );
@@ -1009,8 +2238,19 @@ const permissionModules = [
   }
 ];
 
-const EmployeeManagement = () => {
+const EmployeeManagement = ({
+  employees,
+  onCreateEmployee,
+}: {
+  employees: PEmployee[];
+  onCreateEmployee: (payload: { name: string; email: string; role: string }) => Promise<void>;
+}) => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState('salesperson');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 relative">
@@ -1043,21 +2283,21 @@ const EmployeeManagement = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <p className="text-sm font-medium text-gray-500">总员工数</p>
-            <p className="text-3xl font-black mt-1 text-gray-900 tracking-tight">124</p>
+            <p className="text-3xl font-black mt-1 text-gray-900 tracking-tight">{employees.length || 0}</p>
             <div className="mt-4 flex items-center text-xs text-green-600 font-medium">
               <TrendingUp size={14} className="mr-1" /> 本月 +4
             </div>
           </div>
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <p className="text-sm font-medium text-gray-500">激活角色数</p>
-            <p className="text-3xl font-black mt-1 text-gray-900 tracking-tight">6</p>
+            <p className="text-3xl font-black mt-1 text-gray-900 tracking-tight">{new Set(employees.map((e) => e.role || 'salesperson')).size || 0}</p>
             <div className="mt-4 flex items-center text-xs text-gray-500 font-medium">
               <ShieldAlert size={14} className="mr-1" /> 系统定义
             </div>
           </div>
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <p className="text-sm font-medium text-gray-500">待处理邀请</p>
-            <p className="text-3xl font-black mt-1 text-gray-900 tracking-tight">12</p>
+            <p className="text-3xl font-black mt-1 text-gray-900 tracking-tight">{employees.filter((e) => (e.status || '').includes('invite')).length}</p>
             <div className="mt-4 flex items-center text-xs text-amber-600 font-medium">
               <Clock size={14} className="mr-1" /> 即将过期
             </div>
@@ -1078,57 +2318,31 @@ const EmployeeManagement = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                <tr className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-gray-900">客户管理</td>
-                  <td className="px-6 py-4">
-                    <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700">经理</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-600"></span>在线
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">2 小时前</td>
-                  <td className="px-6 py-4 text-right">
-                    <button className="text-gray-400 hover:text-blue-600 transition-colors cursor-pointer">
-                      <MoreHorizontal size={20} />
-                    </button>
-                  </td>
-                </tr>
-                <tr className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-gray-900">保单签发</td>
-                  <td className="px-6 py-4">
-                    <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700">业务员</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-600"></span>在线
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">5 分钟前</td>
-                  <td className="px-6 py-4 text-right">
-                    <button className="text-gray-400 hover:text-blue-600 transition-colors cursor-pointer">
-                      <MoreHorizontal size={20} />
-                    </button>
-                  </td>
-                </tr>
-                <tr className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-gray-900">账单与支付</td>
-                  <td className="px-6 py-4">
-                    <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700">业务员</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span>已邀请
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-400 italic">无</td>
-                  <td className="px-6 py-4 text-right">
-                    <button className="text-gray-400 hover:text-blue-600 transition-colors cursor-pointer">
-                      <MoreHorizontal size={20} />
-                    </button>
-                  </td>
-                </tr>
+                {(employees.length
+                  ? employees
+                  : [{ id: 1, name: '默认业务员', role: 'salesperson', status: 'active', lastActiveAt: '2026-02-25 10:30' }]
+                ).map((row: any) => (
+                  <tr key={row.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 font-medium text-gray-900">{row.name}</td>
+                    <td className="px-6 py-4">
+                      <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700">
+                        {row.role === 'manager' ? '经理' : row.role === 'support' ? '技术支持' : '业务员'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${(row.status || '').includes('invite') ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${(row.status || '').includes('invite') ? 'bg-amber-600' : 'bg-green-600'}`}></span>
+                        {(row.status || '').includes('invite') ? '已邀请' : '在线'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{row.lastActiveAt ? String(row.lastActiveAt).slice(0, 16).replace('T', ' ') : '无'}</td>
+                    <td className="px-6 py-4 text-right">
+                      <button className="text-gray-400 hover:text-blue-600 transition-colors cursor-pointer">
+                        <MoreHorizontal size={20} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -1241,6 +2455,8 @@ const EmployeeManagement = () => {
                 <label className="text-sm font-semibold text-gray-700">姓名</label>
                 <input 
                   type="text" 
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-lg border border-gray-200 bg-white focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 outline-none transition-all" 
                   placeholder="例如: 张三" 
                 />
@@ -1249,6 +2465,8 @@ const EmployeeManagement = () => {
                 <label className="text-sm font-semibold text-gray-700">工作邮箱</label>
                 <input 
                   type="email" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-lg border border-gray-200 bg-white focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 outline-none transition-all" 
                   placeholder="robert@company.com" 
                 />
@@ -1256,7 +2474,11 @@ const EmployeeManagement = () => {
               <div className="space-y-1.5">
                 <label className="text-sm font-semibold text-gray-700">分配角色</label>
                 <div className="relative">
-                  <select className="w-full px-4 py-2.5 rounded-lg border border-gray-200 bg-white focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 outline-none appearance-none transition-all cursor-pointer">
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-lg border border-gray-200 bg-white focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 outline-none appearance-none transition-all cursor-pointer"
+                  >
                     <option value="">选择一个角色...</option>
                     <option value="manager">经理</option>
                     <option value="salesperson">业务员</option>
@@ -1265,6 +2487,9 @@ const EmployeeManagement = () => {
                   <ChevronDown size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                 </div>
               </div>
+              {submitError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{submitError}</div>
+              )}
               
               <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-lg border border-blue-100">
                 <Info size={20} className="text-blue-600 shrink-0 mt-0.5" />
@@ -1281,8 +2506,31 @@ const EmployeeManagement = () => {
               >
                 取消
               </button>
-              <button className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold shadow-sm shadow-blue-600/20 hover:bg-blue-700 transition-all cursor-pointer">
-                发送邀请
+              <button
+                disabled={submitting}
+                onClick={async () => {
+                  const payload = { name: name.trim(), email: email.trim(), role: role || 'salesperson' };
+                  if (!payload.name || !payload.email) {
+                    setSubmitError('请输入姓名和工作邮箱');
+                    return;
+                  }
+                  try {
+                    setSubmitting(true);
+                    setSubmitError('');
+                    await onCreateEmployee(payload);
+                    setIsAddModalOpen(false);
+                    setName('');
+                    setEmail('');
+                    setRole('salesperson');
+                  } catch (err: any) {
+                    setSubmitError(err?.message || '邀请失败');
+                  } finally {
+                    setSubmitting(false);
+                  }
+                }}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold shadow-sm shadow-blue-600/20 hover:bg-blue-700 transition-all cursor-pointer disabled:opacity-60"
+              >
+                {submitting ? '发送中...' : '发送邀请'}
               </button>
             </div>
           </div>
@@ -1694,7 +2942,15 @@ const tagRules = [
   }
 ];
 
-const LearningMaterials = () => {
+const LearningMaterials = ({
+  onCreate,
+  onOpenDetail,
+  list,
+}: {
+  onCreate: () => void;
+  onOpenDetail: (title: string) => void;
+  list: typeof materials;
+}) => {
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
       <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8 shrink-0">
@@ -1791,7 +3047,10 @@ const LearningMaterials = () => {
             </div>
           </div>
           <div className="ml-auto flex items-center gap-2 flex-shrink-0">
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm cursor-pointer">
+            <button
+              onClick={onCreate}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm cursor-pointer"
+            >
               <Upload size={16} />
               新增
             </button>
@@ -1803,7 +3062,7 @@ const LearningMaterials = () => {
 
         {/* Material Grid */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {materials.map((item, idx) => (
+          {list.map((item, idx) => (
             <div key={idx} className="bg-white rounded-xl border border-gray-200 overflow-hidden group shadow-sm hover:shadow-md transition-all flex flex-col">
               <div className="relative aspect-video bg-gray-200 shrink-0">
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent z-10"></div>
@@ -1864,7 +3123,7 @@ const LearningMaterials = () => {
                   <Edit size={14} />
                   编辑
                 </button>
-                <button className="flex-1 py-1.5 hover:bg-gray-50 rounded text-xs font-semibold text-gray-600 transition-colors flex items-center justify-center gap-1 cursor-pointer">
+                <button onClick={() => onOpenDetail(item.title)} className="flex-1 py-1.5 hover:bg-gray-50 rounded text-xs font-semibold text-gray-600 transition-colors flex items-center justify-center gap-1 cursor-pointer">
                   <Eye size={14} />
                   详情
                 </button>
@@ -1894,6 +3153,160 @@ const LearningMaterials = () => {
           </div>
         </footer>
       </div>
+    </div>
+);
+
+function LearningMaterialDetailPage({ onBack, title }: { onBack: () => void; title: string }) {
+  return (
+  <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+    <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between">
+      <div className="flex items-center gap-4">
+        <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600">
+          <ArrowLeft size={16} />
+          返回学习资料
+        </button>
+        <h2 className="text-xl font-bold text-gray-900">学习资料详情</h2>
+      </div>
+      <div className="flex items-center gap-2">
+        <button className="px-4 h-10 rounded-lg border border-gray-200 text-sm font-semibold text-gray-700">编辑资料</button>
+        <button className="px-4 h-10 rounded-lg border border-red-200 text-sm font-semibold text-red-600 bg-red-50">停止发布</button>
+      </div>
+    </header>
+    <main className="flex-1 overflow-auto p-8">
+      <div className="max-w-[1220px] mx-auto space-y-6">
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <div className="flex items-center gap-3">
+            <h3 className="text-2xl font-black text-gray-900">{title || '2024 新政深研'}</h3>
+            <span className="px-2 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">进行中</span>
+          </div>
+          <div className="mt-2 text-sm text-gray-500 flex items-center gap-5">
+            <span>创建于: 2024-01-15</span>
+            <span>奖励积分: 500</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="rounded-xl border border-gray-200 bg-white p-5"><p className="text-sm text-gray-500">累计学习人数</p><p className="mt-2 text-3xl font-black text-gray-900">12,840</p></div>
+          <div className="rounded-xl border border-gray-200 bg-white p-5"><p className="text-sm text-gray-500">累计总浏览量</p><p className="mt-2 text-3xl font-black text-gray-900">45,291</p></div>
+          <div className="rounded-xl border border-gray-200 bg-white p-5"><p className="text-sm text-gray-500">平均完成率</p><p className="mt-2 text-3xl font-black text-gray-900">86.5%</p></div>
+        </div>
+        <section className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+          <div className="h-12 px-5 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+            <h4 className="text-sm font-bold text-gray-900">资料配置预览</h4>
+            <button className="text-sm text-blue-600 font-semibold">预览全文</button>
+          </div>
+          <div className="p-5 grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div className="aspect-video rounded-lg bg-gray-100 border border-gray-200 overflow-hidden">
+              <img src="https://picsum.photos/seed/learning_detail/960/540" alt="学习资料封面" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            </div>
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase">资料简介</p>
+                <p className="mt-2 text-sm text-gray-700 leading-7">
+                  本资料用于解读行业政策调整，重点覆盖税务合规、数据安全和劳务用工等关键变更，帮助业务团队快速识别风险并掌握执行策略。
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <span className="px-3 py-1 rounded-md text-xs font-semibold bg-gray-100 text-gray-600">#2024新政</span>
+                <span className="px-3 py-1 rounded-md text-xs font-semibold bg-gray-100 text-gray-600">#合规培训</span>
+                <span className="px-3 py-1 rounded-md text-xs font-semibold bg-gray-100 text-gray-600">#必修课程</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+  );
+}
+};
+
+const CreateLearningMaterial = ({ onBack }: { onBack: () => void }) => {
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+      <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8 shrink-0">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors text-sm font-semibold"
+          >
+            <ArrowLeft size={18} />
+            返回
+          </button>
+          <span className="text-gray-300">|</span>
+          <h2 className="text-2xl font-bold text-gray-900">新增学习资料</h2>
+        </div>
+        <div className="flex items-center gap-3 text-gray-400">
+          <Bell size={18} />
+          <HelpCircle size={18} />
+        </div>
+      </header>
+
+      <main className="flex-1 overflow-y-auto p-8">
+        <div className="max-w-6xl mx-auto bg-white border border-gray-200 rounded-2xl p-8 space-y-8 shadow-sm">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <label className="block lg:col-span-2">
+              <span className="text-sm font-bold text-gray-800">资料标题 <span className="text-red-500">*</span></span>
+              <input
+                className="mt-2 w-full h-12 rounded-xl border border-gray-200 px-4 text-sm outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
+                placeholder="请输入学习资料标题，例如：2024家庭资产配置白皮书"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-bold text-gray-800">积分奖励 <span className="text-red-500">*</span></span>
+              <div className="mt-2 h-12 rounded-xl border border-gray-200 bg-white flex items-center px-3">
+                <div className="w-8 h-5 rounded-full bg-blue-600 relative mr-3">
+                  <span className="absolute right-0.5 top-0.5 w-4 h-4 rounded-full bg-white" />
+                </div>
+                <input className="flex-1 text-sm outline-none" placeholder="请输入学习完成后奖励积分" />
+                <span className="text-xs text-gray-400 font-semibold">积分</span>
+              </div>
+            </label>
+          </div>
+
+          <section>
+            <h3 className="text-sm font-bold text-gray-800">资料介绍 <span className="text-red-500">*</span></h3>
+            <div className="mt-2 border border-gray-200 rounded-xl overflow-hidden">
+              <div className="h-12 px-4 flex items-center gap-3 bg-gray-50 border-b border-gray-100 text-gray-600">
+                <button className="font-black">B</button>
+                <button className="italic font-semibold">I</button>
+                <span className="h-4 w-px bg-gray-200"></span>
+                <button><ListIcon size={16} /></button>
+                <button><Link size={16} /></button>
+                <button><ImageIcon size={16} /></button>
+              </div>
+              <textarea
+                className="w-full min-h-48 p-4 text-sm outline-none resize-none"
+                placeholder="请输入详细的资料介绍、学习目标和重点提示..."
+              />
+            </div>
+          </section>
+
+          <section>
+            <h3 className="text-sm font-bold text-gray-800">资料上传 <span className="text-red-500">*</span></h3>
+            <div className="mt-3 border-2 border-dashed border-blue-100 bg-blue-50/20 rounded-2xl min-h-64 flex flex-col items-center justify-center text-center">
+              <div className="w-16 h-16 rounded-full bg-white border border-gray-100 flex items-center justify-center mb-4 text-blue-600">
+                <UploadCloud size={28} />
+              </div>
+              <p className="text-xl font-semibold text-gray-800">点击上传视频或图文素材</p>
+              <p className="text-sm text-gray-400 mt-3">支持格式：MP4, PDF, PPT, PNG, JPG</p>
+              <p className="text-sm text-gray-400 mt-1">单个文件不超过 500MB，视频建议 1080P 以内</p>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <footer className="h-20 bg-white border-t border-gray-200 px-8 flex items-center justify-end gap-4 shrink-0">
+        <button
+          onClick={onBack}
+          className="px-8 h-12 rounded-xl border border-gray-200 text-gray-700 font-bold hover:bg-gray-50"
+        >
+          取消
+        </button>
+        <button className="px-8 h-12 rounded-xl bg-blue-600 text-white font-bold shadow-lg shadow-blue-600/20 hover:bg-blue-700 flex items-center gap-2">
+          <Upload size={16} />
+          上传资料
+        </button>
+      </footer>
     </div>
   );
 };
